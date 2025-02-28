@@ -18,7 +18,7 @@ try:
 
     _MLLOGGER = mllog.get_mllogger()
 except ImportError as error:
-    print("Unable to import mlperf_logging, ", error)
+    pass
 
 
 def log_start(*args, **kwargs):

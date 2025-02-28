@@ -58,6 +58,7 @@ import argparse
 # miscellaneous
 import builtins
 import datetime
+import itertools
 import json
 import sys
 import time
@@ -1088,7 +1089,6 @@ def run():
         else:
             ngpus = torch.cuda.device_count()
             device = torch.device("cuda", 0)
-        print("Using {} GPU(s)...".format(ngpus))
     else:
         device = torch.device("cpu")
         print("Using CPU...")
@@ -1485,8 +1485,6 @@ def run():
             dlrm.quantize_embedding(args.quantize_emb_with_bit)
             # print(dlrm)
 
-    print("time/loss/accuracy (if enabled):")
-
     if args.mlperf_logging:
         # LR is logged twice for now because of a compliance checker bug
         mlperf_logger.log_event(
@@ -1541,7 +1539,9 @@ def run():
                 if args.mlperf_logging:
                     previous_iteration_time = None
 
-                for j, inputBatch in enumerate(train_ld):
+                inputBatch = next(iter(train_ld))
+                for j in range(args.num_batches) if args.num_batches else itertools.count():
+                    t_i = time.time()
                     if j == 0 and args.save_onnx:
                         X_onnx, lS_o_onnx, lS_i_onnx, _, _, _ = unpack_batch(inputBatch)
 
@@ -1642,36 +1642,7 @@ def run():
                         and (((j + 1) % args.test_freq == 0) or (j + 1 == nbatches))
                     )
 
-                    # print time, loss and accuracy
-                    if should_print or should_test:
-                        gT = 1000.0 * total_time / total_iter if args.print_time else -1
-                        total_time = 0
-
-                        train_loss = total_loss / total_samp
-                        total_loss = 0
-
-                        str_run_type = (
-                            "inference" if args.inference_only else "training"
-                        )
-
-                        wall_time = ""
-                        if args.print_wall_time:
-                            wall_time = " ({})".format(time.strftime("%H:%M"))
-
-                        print(
-                            "Finished {} it {}/{} of epoch {}, {:.2f} ms/it,".format(
-                                str_run_type, j + 1, nbatches, k, gT
-                            )
-                            + " loss {:.6f}".format(train_loss)
-                            + wall_time,
-                            flush=True,
-                        )
-
-                        log_iter = nbatches * k + j + 1
-                        writer.add_scalar("Train/Loss", train_loss, log_iter)
-
-                        total_iter = 0
-                        total_samp = 0
+                    print(t_i, time.time() - t_i, flush=True)
 
                     # testing
                     if should_test:
